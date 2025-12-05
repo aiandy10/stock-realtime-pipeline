@@ -1,10 +1,10 @@
-version: "3.9"
 services:
   zookeeper:
     image: bitnami/zookeeper:3.9
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
-    ports: ["2181:2181"]
+    ports:
+      - "2181:2181"
 
   kafka:
     image: bitnami/kafka:3.7
@@ -13,22 +13,28 @@ services:
       - ALLOW_PLAINTEXT_LISTENER=yes
       - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
       - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-    ports: ["9092:9092"]
-    depends_on: ["zookeeper"]
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
 
   spark-master:
-    image: bitnami/spark:3.5
+    image: bitnami/spark:3.4.2   # use a valid tag
     environment:
       - SPARK_MODE=master
-    ports: ["7077:7077","8080:8080"]
+    ports:
+      - "7077:7077"
+      - "8080:8080"
 
   spark-worker:
-    image: bitnami/spark:3.5
+    image: bitnami/spark:3.4.2
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
-    depends_on: ["spark-master"]
-    ports: ["8081:8081"]
+    depends_on:
+      - spark-master
+    ports:
+      - "8081:8081"
 
   producer:
     build: ./services/producer
@@ -36,14 +42,17 @@ services:
       - KAFKA_BROKER=kafka:9092
       - KAFKA_TOPIC=nse_ticks
       - UNIVERSE=RELIANCE,TCS,INFY,HDFCBANK
-    depends_on: ["kafka"]
+    depends_on:
+      - kafka
 
   streaming:
     build: ./services/streaming
+    env_file:
+      - ./config/.env   # inject Supabase credentials
     environment:
       - KAFKA_BOOTSTRAP=kafka:9092
       - KAFKA_TOPIC=nse_ticks
-      - SUPABASE_HOST=${SUPABASE_HOST}
-      - SUPABASE_USER=${SUPABASE_USER}
-      - SUPABASE_PASSWORD=${SUPABASE_PASSWORD}
-    depends_on: ["kafka","spark-master","spark-worker"]
+    depends_on:
+      - kafka
+      - spark-master
+      - spark-worker
