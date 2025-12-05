@@ -21,18 +21,15 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
   spark-master:
-    image: bitnami/spark:3.4.2
-    environment:
-      - SPARK_MODE=master
+    image: apache/spark:3.5.0
+    command: bin/spark-class org.apache.spark.deploy.master.Master --host spark-master
     ports:
       - "7077:7077"
       - "8080:8080"
 
   spark-worker:
-    image: bitnami/spark:3.4.2
-    environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
+    image: apache/spark:3.5.0
+    command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
     depends_on:
       - spark-master
     ports:
