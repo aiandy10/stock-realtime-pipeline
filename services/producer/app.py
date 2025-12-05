@@ -1,31 +1,38 @@
-import os, time, random, json, datetime as dt
-from kafka import KafkaProducer
-from kafka.errors import NoBrokersAvailable
+import time
+import random
+import datetime as dt
+import psycopg2
+ipv4_host = socket.getaddrinfo("db.kgutffsckhqxaouwjlhn.supabase.co", None, socket.AF_INET)[0][4][0]
+# Symbols to simulate
+symbols = ["RELIANCE", "TCS", "INFY", "HDFCBANK"]
 
-BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")
-TOPIC = os.getenv("KAFKA_TOPIC", "nse_ticks")
-UNIVERSE = os.getenv("UNIVERSE", "RELIANCE,TCS,INFY,HDFCBANK").split(",")
+# Supabase connection details
+conn = psycopg2.connect(
+    host="db.kgutffsckhqxaouwjlhn.supabase.co",
+    port=5432,
+    dbname="postgres",
+    user="postgres",
+    password="Pwdmui@1007",   # if your password contains '@', escape it as %40 in URIs, but here psycopg2 handles it fine
+    sslmode="require"
+)
+cur = conn.cursor()
 
-# Retry until Kafka is ready
+print("✅ Connected to Supabase Postgres")
+
+# Continuous tick generation
 while True:
-    try:
-        producer = KafkaProducer(
-            bootstrap_servers=BROKER,
-            value_serializer=lambda v: json.dumps(v).encode("utf-8")
-        )
-        break
-    except NoBrokersAvailable:
-        print("Kafka not ready, retrying...")
-        time.sleep(5)
-
-while True:
-    symbol = random.choice(UNIVERSE)
-    payload = {
-        "symbol": symbol,
-        "ts": dt.datetime.utcnow().isoformat() + "Z",
+    tick = {
+        "symbol": random.choice(symbols),
+        "ts": dt.datetime.now(dt.UTC).isoformat(),
         "price": round(random.uniform(2000, 3000), 2),
         "volume": random.randint(100, 1000)
     }
-    producer.send(TOPIC, payload)
-    print("Sent:", payload)
+
+    cur.execute(
+        "INSERT INTO public.ticks (symbol, ts, price, volume) VALUES (%s, %s, %s, %s)",
+        (tick["symbol"], tick["ts"], tick["price"], tick["volume"])
+    )
+    conn.commit()
+
+    print("Inserted:", tick)
     time.sleep(2)

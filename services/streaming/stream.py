@@ -17,6 +17,13 @@ df = spark.readStream.format("kafka") \
 
 parsed = df.select(F.from_json(F.col("value").cast("string"), schema).alias("j")).select("j.*")
 
+# Optional: console sink to validate ingestion
+console_query = parsed.writeStream \
+    .outputMode("append") \
+    .format("console") \
+    .option("truncate", "false") \
+    .start()
+
 SUPABASE_URL = f"jdbc:postgresql://{os.getenv('SUPABASE_HOST')}:{os.getenv('SUPABASE_PORT')}/{os.getenv('SUPABASE_DB')}?sslmode={os.getenv('SUPABASE_SSLMODE','require')}"
 SUPABASE_USER = os.getenv("SUPABASE_USER")
 SUPABASE_PASSWORD = os.getenv("SUPABASE_PASSWORD")
@@ -34,4 +41,9 @@ def write_to_supabase(batch_df, batch_id):
       .mode("append")
       .save())
 
-parsed.writeStream.foreachBatch(write_to_supabase).outputMode("append").start().awaitTermination()
+jdbc_query = parsed.writeStream.foreachBatch(write_to_supabase) \
+    .outputMode("append") \
+    .start()
+
+console_query.awaitTermination()
+jdbc_query.awaitTermination()
